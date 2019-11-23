@@ -1,4 +1,3 @@
-import sys
 import numpy as np
 import utils
 import matplotlib.pyplot as plt
@@ -11,6 +10,9 @@ from sklearn.datasets import make_moons, make_circles, make_blobs
 from sklearn.preprocessing import StandardScaler
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
+
+import sys
+import torch
 
 
 if sys.version_info[0] < 3:
@@ -27,6 +29,8 @@ else:
         ["data", "target", "target_names", "filename"],
         defaults=(None, None, None, None)
     )
+
+
 
 def get_fn_values(points, fn, X_vals):
     return np.array([fn(points, v) for v in X_vals])
@@ -351,3 +355,70 @@ def get_data(split=True):
         return train_test_split(X, y, test_size=0.25, random_state=42)
     else:
         return X, y
+
+def get_classification_dataset_1d():
+    torch.manual_seed(8)
+    X = torch.cat([
+        torch.randn(10, 1) * 3 + 10,
+        torch.randn(10, 1) * 3 + 1,
+    ])
+
+    y = torch.cat([torch.zeros(10), torch.ones(10)])
+    return Dataset(X, y)
+
+def get_classification_dataset_2d():
+    torch.manual_seed(4)
+    X = torch.cat([
+        torch.randn(50, 2) * 2 + torch.tensor([4., 2.]),
+        torch.randn(50, 2) * 0.5 + torch.tensor([2., -4.]),
+    ])
+
+    y = torch.cat([torch.zeros(50), torch.ones(50)])
+    return Dataset(X, y)
+
+def plot_torch_fn(complex_fn, a, x, result):
+    linspace = torch.linspace(-5, 5, steps=400)
+    vals = complex_fn(a, linspace)
+    plt.plot(linspace.numpy(), vals.detach().numpy())
+    plt.scatter(x.detach().numpy(), complex_fn(a, x).detach().numpy(), label="Starting point")
+    plt.scatter(result, complex_fn(a, result), label="End point")
+    plt.legend()
+    
+def visualize_optimizer(optim, n_steps, title=None, **params):
+
+    def f(w):
+        x = torch.tensor([0.2, 2], dtype=torch.float)
+        return torch.sum(x * w ** 2)
+
+    w = torch.tensor([-6, 2], dtype=torch.float, requires_grad=True)
+
+    optimizer = optim([w], **params)
+
+
+    history = [w.detach().numpy()]
+
+    for i in range(n_steps):
+
+        optimizer.zero_grad()
+
+        loss = f(w)
+        loss.backward()
+        optimizer.step()
+        history.append(w.clone().detach().numpy())
+
+    delta = 0.01
+    x = np.arange(-7.0, 7.0, delta)
+    y = np.arange(-4.0, 4.0, delta)
+    X, Y = np.meshgrid(x, y)
+
+    Z = 0.2 * X ** 2 + 2 * Y ** 2
+
+    fig, ax = plt.subplots(figsize=(14,6))
+    ax.contour(X, Y, Z, 20)
+
+    h = np.array(history)
+
+    ax.plot(h[:,0], h[:,1], 'x-')
+    
+    if title is not None:
+        ax.set_title(title)
